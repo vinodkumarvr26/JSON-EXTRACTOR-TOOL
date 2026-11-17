@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f8fc">
+  <meta name="description" content="Extract structured invoice and resume data from plain-text documents.">
+  <title>JSON Extractor</title>
+  <style>
+    @font-face {
+      font-family: "Nunito";
+      src: url("/static/fonts/Nunito.woff2") format("woff2");
+      font-style: normal;
+      font-weight: 400 800;
+      font-display: swap;
+    }
+
+    :root {
+      color-scheme: light;
+      --font-family: "Nunito", "Segoe UI", Arial, sans-serif;
+      --font-main: 30px;
+      --font-page: 26px;
+      --font-section: 22px;
+      --font-card: 18px;
+      --font-body: 16px;
+      --font-button: 16px;
+      --font-label: 16px;
+      --font-helper: 14px;
+      --font-meta: 14px;
+      --ink: #202842;
+      --muted: #64708a;
+      --line: #e3e7f0;
+      --paper: #ffffff;
+      --canvas: #f7f8fc;
+      --accent: #5b62d9;
+      --accent-dark: #4b51c4;
+      --accent-soft: #eff0ff;
+      --danger: #a63c4b;
+      --danger-bg: #fff0f1;
+      --success: #24744f;
+      --success-bg: #edf8f1;
+      --shadow: 0 12px 32px rgba(34, 45, 80, 0.06);
+      font-family: var(--font-family);
+      font-size: var(--font-body);
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+    }
+
+    button, textarea, input { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, textarea:focus-visible, input:focus-visible + .upload-drop {
+      outline: 3px solid rgba(91, 98, 217, .25);
+      outline-offset: 3px;
+    }
+
+    .shell { width: min(760px, calc(100% - 40px)); margin: 0 auto; }
+    .topbar {
+      height: 72px;
+      border-bottom: 1px solid var(--line);
+      background: var(--paper);
+    }
+    .topbar-inner {
+      display: flex;
+      height: 100%;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; }
+    .brand-mark {
+      display: grid;
+      width: 40px;
+      height: 40px;
+      flex: 0 0 auto;
+      place-items: center;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border-radius: 12px;
+    }
+    .brand-name { display: block; font-size: var(--font-card); font-weight: 800; line-height: 1.2; }
+    .brand-label { display: block; margin-top: 2px; color: var(--muted); font-size: var(--font-meta); }
+    .connection {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: #fff;
+      font-size: var(--font-meta);
+      white-space: nowrap;
+    }
+    .connection-dot { width: 8px; height: 8px; border-radius: 50%; background: #a2abc0; }
+    .connection[data-state="connected"] { color: var(--success); background: var(--success-bg); border-color: #d7ecdf; }
+    .connection[data-state="connected"] .connection-dot { background: #33a475; }
+    .connection[data-state="offline"] { color: var(--danger); background: var(--danger-bg); border-color: #f1d8dc; }
+    .connection[data-state="offline"] .connection-dot { background: #d25c69; }
+
+    main { padding: 38px 0 32px; }
+    .intro { margin: 0 0 24px; }
+    h1 { margin: 0; font-size: var(--font-main); font-weight: 800; letter-spacing: -.035em; line-height: 1.2; }
+    .intro p { margin: 7px 0 0; color: var(--muted); font-size: var(--font-body); line-height: 1.5; }
+    .panel {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+    .panel-heading { padding: 19px 22px 15px; border-bottom: 1px solid #eef0f5; }
+    h2 { margin: 0; font-size: var(--font-card); font-weight: 700; line-height: 1.35; }
+    .panel-hint { margin: 4px 0 0; color: var(--muted); font-size: var(--font-helper); line-height: 1.5; }
+    .panel-body { padding: 19px 22px 21px; }
+    .field-label { display: block; margin: 0 0 9px; font-size: var(--font-label); font-weight: 700; }
+    .type-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 19px; }
+    .type-option {
+      display: flex;
+      min-width: 0;
+      min-height: 52px;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--ink);
+      background: #fff;
+      text-align: left;
+      font-size: var(--font-body);
+      font-weight: 600;
+    }
+    .type-option:hover { border-color: #b7bbef; }
+    .type-option[aria-pressed="true"] { border-color: #8589e4; background: #f7f7ff; }
+    .type-option svg { flex: 0 0 auto; color: var(--accent); }
+    .upload-drop {
+      display: flex;
+      min-height: 72px;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px dashed #c7cddd;
+      border-radius: 10px;
+      color: var(--ink);
+      background: #fbfcff;
+      cursor: pointer;
+    }
+    .upload-drop:hover, .upload-drop.dragover { border-color: #8589e4; background: #f7f7ff; }
+    .upload-symbol { flex: 0 0 auto; color: var(--accent); }
+    .upload-copy { min-width: 0; }
+    .upload-title { display: block; font-size: var(--font-body); font-weight: 700; }
+    .upload-help, .file-name { display: block; margin-top: 2px; color: var(--muted); font-size: var(--font-helper); }
+    .file-name { overflow: hidden; color: var(--accent); text-overflow: ellipsis; white-space: nowrap; }
+    #file-input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+    .textarea-label-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 17px 0 8px; }
+    .textarea-label-row .field-label { margin: 0; }
+    .char-count { color: var(--muted); font-size: var(--font-meta); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .char-count[data-over="true"] { color: var(--danger); font-weight: 700; }
+    textarea {
+      display: block;
+      width: 100%;
+      min-height: 170px;
+      padding: 12px 13px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--ink);
+      background: #fdfdff;
+      font-family: var(--font-family);
+      font-size: var(--font-body);
+      line-height: 1.55;
+    }
+    textarea::placeholder { color: #78839a; }
+    textarea:focus { outline: none; border-color: #8589e4; box-shadow: 0 0 0 3px rgba(91, 98, 217, .09); }
+    .privacy-note { margin: 11px 0 0; color: var(--muted); font-size: var(--font-helper); line-height: 1.5; }
+    .form-message { display: none; margin-top: 12px; padding: 10px 12px; border-radius: 9px; font-size: var(--font-helper); line-height: 1.5; }
+    .form-message.visible { display: block; }
+    .form-message.error { color: var(--danger); background: var(--danger-bg); }
+    .form-message.info { color: #43527c; background: #edf5ff; }
+    .actions { display: flex; gap: 10px; margin-top: 16px; }
+    .button {
+      display: inline-flex;
+      min-height: 44px;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 15px;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      font-size: var(--font-button);
+      font-weight: 700;
+    }
+    .button:disabled { cursor: not-allowed; opacity: .6; }
+    .button-primary { flex: 1; color: #fff; background: var(--accent); }
+    .button-primary:hover:not(:disabled) { background: var(--accent-dark); }
+    .button-secondary { border-color: var(--line); color: #4d5872; background: #fff; }
+    .button-secondary:hover:not(:disabled) { background: #f8f9fc; }
+    .spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,.45);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .75s linear infinite;
+    }
+    .loading .spinner { display: inline-block; }
+    .loading .extract-icon { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .result-panel { margin-top: 18px; }
+    .result-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .result-meta { color: var(--muted); font-size: var(--font-meta); }
+    .result-body { padding: 15px 18px 17px; }
+    .result-json {
+      max-height: 430px;
+      overflow: auto;
+      margin: 0;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      color: #26314d;
+      background: #f8f9fc;
+      font-family: var(--font-family);
+      font-size: var(--font-meta);
+      line-height: 1.55;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .result-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 12px; }
+    @media (max-width: 520px) {
+      .shell { width: calc(100% - 28px); }
+      .topbar { height: 68px; }
+      .brand-mark { width: 36px; height: 36px; }
+      .brand { gap: 8px; }
+      .brand-name { font-size: var(--font-body); }
+      .brand-label { max-width: 155px; }
+      .connection { gap: 6px; padding: 6px 8px; }
+      main { padding: 29px 0 24px; }
+      .intro { margin-bottom: 19px; }
+      .panel-heading { padding: 16px 15px 13px; }
+      .panel-body { padding: 15px; }
+      .type-options { gap: 8px; }
+      .type-option { justify-content: center; padding: 8px; }
+      .actions { gap: 8px; }
+      .button { padding: 0 11px; }
+      .result-actions { flex-wrap: wrap; }
+    }
+    @media (max-width: 360px) {
+      .brand-label { max-width: 128px; }
+      .connection { gap: 5px; padding: 6px 7px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <a class="brand" href="/" aria-label="JSON Extractor home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+            <path d="M7 3.75h7l4 4v12.5H7a2 2 0 0 1-2-2v-12.5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+            <path d="M14 4v4h4M8.5 12h7M8.5 15.5h7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span>
+          <span class="brand-name">JSON Extractor</span>
+          <span class="brand-label">AI-powered document intelligence.</span>
+        </span>
+      </a>
+      <div id="connection" class="connection" data-state="checking" role="status" aria-live="polite">
+        <span class="connection-dot" aria-hidden="true"></span>
+        <span id="connection-text">Connecting to backend</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="intro" aria-labelledby="page-title">
+      <h1 id="page-title">Document to structured JSON.</h1>
+      <p>Extract useful details from invoices and resumes in seconds.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="input-heading">
+      <div class="panel-heading">
+        <h2 id="input-heading">Add a document</h2>
+        <p class="panel-hint">Choose a type, then upload or paste the document text.</p>
+      </div>
+      <div class="panel-body">
+        <span class="field-label" id="type-label">Document type</span>
+        <div class="type-options" role="group" aria-labelledby="type-label">
+          <button type="button" class="type-option" data-type="invoice" aria-pressed="true">
+            <svg width="19" height="19" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M4.5 3.5h11v13l-2.2-1.5-2.3 1.5-2.3-1.5-2.2 1.5v-13Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+              <path d="M7 7h6M7 10h6M7 13h2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            Invoice
+          </button>
+          <button type="button" class="type-option" data-type="resume" aria-pressed="false">
+            <svg width="19" height="19" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <circle cx="10" cy="6.3" r="2.5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M4.8 16c.4-2.6 2.2-4 5.2-4s4.8 1.4 5.2 4H4.8Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+            Resume
+          </button>
+        </div>
+
+        <label class="field-label" for="file-input">Upload a .txt file</label>
+        <label class="upload-drop" id="upload-drop" for="file-input">
+          <span class="upload-symbol" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
+              <path d="M10 13V4m0 0L6.7 7.3M10 4l3.3 3.3M4 12.5v2.7c0 .7.6 1.3 1.3 1.3h9.4c.7 0 1.3-.6 1.3-1.3v-2.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="upload-copy">
+            <span class="upload-title">Choose a file or drop it here</span>
+            <span class="upload-help">Plain text only · up to 50,000 characters</span>
+            <span id="file-name" class="file-name" hidden></span>
+          </span>
+        </label>
+        <input id="file-input" type="file" accept=".txt,text/plain" aria-label="Choose a plain-text file">
+
+        <div class="textarea-label-row">
+          <label class="field-label" for="document-text">Paste or edit document text</label>
+          <span id="char-count" class="char-count" aria-live="polite">0 / 50,000</span>
+        </div>
+        <textarea id="document-text" maxlength="50000" spellcheck="false" placeholder="Paste text from your invoice or resume here…"></textarea>
+        <p class="privacy-note">Submitted text is sent to Gemini for AI processing and is not stored by this application.</p>
+        <div id="form-message" class="form-message" role="alert"></div>
+        <div class="actions">
+          <button id="extract-button" class="button button-primary" type="button">
+            <span class="spinner" aria-hidden="true"></span>
+            <svg class="extract-icon" width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="m10 2 1.5 5.5L17 9l-5.5 1.5L10 16l-1.5-5.5L3 9l5.5-1.5L10 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+            <span id="extract-label">Extract Structured Data</span>
+          </button>
+          <button id="clear-button" class="button button-secondary" type="button">Clear</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="result-panel" class="panel result-panel" aria-labelledby="result-heading" hidden>
+      <div class="panel-heading result-heading">
+        <h2 id="result-heading">Structured JSON</h2>
+        <span id="result-meta" class="result-meta"></span>
+      </div>
+      <div class="result-body">
+        <pre class="result-json"><code id="result-code"></code></pre>
+        <div class="result-actions">
+          <button id="copy-button" class="button button-secondary" type="button">Copy JSON</button>
+          <button id="download-button" class="button button-secondary" type="button">Download JSON</button>
+          <button id="result-clear-button" class="button button-secondary" type="button">Clear</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    "use strict";
+
+    const MAX_CHARACTERS = 50000;
+    const api = { health: "/api/health", extract: "/api/extract" };
+    const elements = {
+      connection: document.getElementById("connection"),
+      connectionText: document.getElementById("connection-text"),
+      typeOptions: Array.from(document.querySelectorAll(".type-option")),
+      fileInput: document.getElementById("file-input"),
+      uploadDrop: document.getElementById("upload-drop"),
+      fileName: document.getElementById("file-name"),
+      documentText: document.getElementById("document-text"),
+      charCount: document.getElementById("char-count"),
+      formMessage: document.getElementById("form-message"),
+      extractButton: document.getElementById("extract-button"),
+      extractLabel: document.getElementById("extract-label"),
+      clearButton: document.getElementById("clear-button"),
+      resultPanel: document.getElementById("result-panel"),
+      resultMeta: document.getElementById("result-meta"),
+      resultCode: document.getElementById("result-code"),
+      copyButton: document.getElementById("copy-button"),
+      downloadButton: document.getElementById("download-button"),
+      resultClearButton: document.getElementById("result-clear-button")
+    };
+
+    let selectedType = "invoice";
+    let resultJsonText = "";
+
+    function setFormMessage(message, kind) {
+      elements.formMessage.textContent = message;
+      elements.formMessage.className = message ? `form-message visible ${kind}` : "form-message";
+    }
+
+    function updateCharacterCount() {
+      const length = elements.documentText.value.length;
+      elements.charCount.textContent = `${length.toLocaleString()} / ${MAX_CHARACTERS.toLocaleString()}`;
+      elements.charCount.dataset.over = String(length > MAX_CHARACTERS);
+    }
+
+    function clearResult() {
+      resultJsonText = "";
+      elements.resultCode.textContent = "";
+      elements.resultMeta.textContent = "";
+      elements.resultPanel.hidden = true;
+    }
+
+    function getApiErrorMessage(payload, status) {
+      if (status === 422) {
+        return "The request was not accepted. Check the document type and keep the text between 1 and 50,000 characters.";
+      }
+      if (status === 502 && payload && payload.detail && typeof payload.detail === "object") {
+        if (payload.detail.api_status) {
+          return `Gemini could not process this document (${String(payload.detail.api_status)}). Please try again later.`;
+        }
+        return "The extraction service returned data that could not be validated. Please try again.";
+      }
+      if (status === 502) return "The extraction service returned an empty or invalid result. Please try again.";
+      return "The extraction service could not complete this request. Please try again later.";
+    }
+
+    async function checkBackendHealth() {
+      try {
+        const response = await fetch(api.health, { headers: { Accept: "application/json" } });
+        if (!response.ok) throw new Error("Health check failed");
+        const payload = await response.json();
+        if (payload.status !== "ok") throw new Error("Unexpected health response");
+        elements.connection.dataset.state = "connected";
+        elements.connectionText.textContent = "Backend connected";
+      } catch {
+        elements.connection.dataset.state = "offline";
+        elements.connectionText.textContent = "Backend unavailable";
+      }
+    }
+
+    function acceptFile(file) {
+      if (!file) return;
+      if (!file.name.toLowerCase().endsWith(".txt")) {
+        elements.fileInput.value = "";
+        elements.fileName.hidden = true;
+        elements.fileName.textContent = "";
+        setFormMessage("Unsupported file type. Please choose a .txt file.", "error");
+        return;
+      }
+      file.text().then((text) => {
+        if (text.length > MAX_CHARACTERS) {
+          elements.fileInput.value = "";
+          setFormMessage("This file contains more than 50,000 characters.", "error");
+          return;
+        }
+        elements.documentText.value = text;
+        elements.fileName.textContent = file.name;
+        elements.fileName.hidden = false;
+        updateCharacterCount();
+        setFormMessage("", "");
+      }).catch(() => {
+        elements.fileInput.value = "";
+        setFormMessage("The selected text file could not be read. Choose another file or paste the text.", "error");
+      });
+    }
+
+    elements.typeOptions.forEach((option) => {
+      option.addEventListener("click", () => {
+        selectedType = option.dataset.type;
+        elements.typeOptions.forEach((item) => {
+          item.setAttribute("aria-pressed", String(item === option));
+        });
+        setFormMessage("", "");
+      });
+    });
+
+    elements.fileInput.addEventListener("change", (event) => {
+      acceptFile(event.target.files && event.target.files[0]);
+    });
+
+    elements.documentText.addEventListener("input", () => {
+      updateCharacterCount();
+      if (elements.documentText.value.length <= MAX_CHARACTERS) setFormMessage("", "");
+      if (!elements.documentText.value) {
+        elements.fileInput.value = "";
+        elements.fileName.hidden = true;
+        elements.fileName.textContent = "";
+      }
+    });
+
+    ["dragenter", "dragover"].forEach((eventName) => {
+      elements.uploadDrop.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        elements.uploadDrop.classList.add("dragover");
+      });
+    });
+    ["dragleave", "drop"].forEach((eventName) => {
+      elements.uploadDrop.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        elements.uploadDrop.classList.remove("dragover");
+      });
+    });
+    elements.uploadDrop.addEventListener("drop", (event) => {
+      acceptFile(event.dataTransfer && event.dataTransfer.files[0]);
+    });
+
+    elements.extractButton.addEventListener("click", async () => {
+      const documentText = elements.documentText.value;
+      if (!documentText.trim()) {
+        setFormMessage("Add document text or choose a .txt file before extracting.", "error");
+        elements.documentText.focus();
+        return;
+      }
+      if (documentText.length > MAX_CHARACTERS) {
+        setFormMessage("The document exceeds the 50,000-character limit.", "error");
+        return;
+      }
+
+      setFormMessage("", "");
+      clearResult();
+      elements.extractButton.disabled = true;
+      elements.extractButton.classList.add("loading");
+      elements.extractLabel.textContent = "Analyzing document...";
+
+      try {
+        const response = await fetch(api.extract, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ document_type: selectedType, document_text: documentText })
+        });
+        let payload;
+        try {
+          payload = await response.json();
+        } catch {
+          throw new Error("invalid-response");
+        }
+
+        if (!response.ok) {
+          setFormMessage(getApiErrorMessage(payload, response.status), "error");
+          return;
+        }
+        if (
+          !payload ||
+          payload.document_type !== selectedType ||
+          !payload.data ||
+          typeof payload.data !== "object" ||
+          Array.isArray(payload.data)
+        ) {
+          setFormMessage("The server returned an unexpected response. Please try again.", "error");
+          return;
+        }
+
+        resultJsonText = JSON.stringify(payload, null, 2);
+        elements.resultCode.textContent = resultJsonText;
+        elements.resultMeta.textContent = `${selectedType === "invoice" ? "Invoice" : "Resume"} extraction`;
+        elements.resultPanel.hidden = false;
+      } catch {
+        setFormMessage("Could not reach the extraction service. Check your connection and try again.", "error");
+      } finally {
+        elements.extractButton.disabled = false;
+        elements.extractButton.classList.remove("loading");
+        elements.extractLabel.textContent = "Extract Structured Data";
+      }
+    });
+
+    elements.copyButton.addEventListener("click", async () => {
+      if (!resultJsonText) return;
+      try {
+        await navigator.clipboard.writeText(resultJsonText);
+        setFormMessage("Formatted JSON copied to clipboard.", "info");
+      } catch {
+        setFormMessage("Clipboard access is unavailable in this browser.", "error");
+      }
+    });
+
+    elements.downloadButton.addEventListener("click", () => {
+      if (!resultJsonText) return;
+      const blob = new Blob([resultJsonText], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${selectedType}_extraction.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    function resetForm() {
+      elements.documentText.value = "";
+      elements.fileInput.value = "";
+      elements.fileName.textContent = "";
+      elements.fileName.hidden = true;
+      setFormMessage("", "");
+      updateCharacterCount();
+      clearResult();
+    }
+
+    elements.clearButton.addEventListener("click", resetForm);
+    elements.resultClearButton.addEventListener("click", resetForm);
+
+    updateCharacterCount();
+    checkBackendHealth();
+  </script>
+</body>
+</html>

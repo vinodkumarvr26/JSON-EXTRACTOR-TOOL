@@ -1,0 +1,19 @@
+.venv/
+.venv-1/
+.env
+**/__pycache__/
+**pycache**/
+.pytest_cache/
+*.py[cod]
+
+# Generated extraction results
+/outputs/*.json
+/outputs/**/*.json
+
+# IDE and editor files
+.vscode/
+.idea/
+*.code-workspace
+
+# Keep the safe environment template in version control
+!.env.example

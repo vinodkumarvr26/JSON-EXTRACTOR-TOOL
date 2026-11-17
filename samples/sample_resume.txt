@@ -1,0 +1,25 @@
+RESUME
+
+Name: Maya Example
+Email: maya.example@example.invalid
+Phone: (555) 010-2048
+Location: Mapleford, OR
+
+SUMMARY
+Organized junior data analyst with experience preparing reports and maintaining
+well-documented datasets. Interested in using technology to improve everyday
+workflows.
+
+EDUCATION
+Bachelor of Science in Information Systems
+Mapleford State College
+Graduated: May 2025
+
+EXPERIENCE
+Data Assistant | Pinecone Research Co. | June 2025 - August 2026
+- Checked incoming survey data for completeness and consistency.
+- Prepared weekly spreadsheet summaries for the research team.
+- Documented repeatable data-cleaning steps.
+
+SKILLS
+Excel, Python fundamentals, data quality, written communication, teamwork

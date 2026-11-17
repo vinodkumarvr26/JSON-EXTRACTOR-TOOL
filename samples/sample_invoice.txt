@@ -1,0 +1,26 @@
+INVOICE
+
+Invoice Number: INV-2026-0142
+Invoice Date: October 12, 2026
+Due Date: November 11, 2026
+
+From:
+Northstar Paper Goods
+48 Cedar Lane
+Mapleford, OR 97000
+Email: billing@example.invalid
+
+Bill To:
+Juniper Studio
+215 Lantern Street
+Mapleford, OR 97000
+
+Description                 Quantity    Unit Price    Amount
+Recycled notebooks              12        $8.50       $102.00
+Delivery                         1       $12.00        $12.00
+
+Subtotal: $114.00
+Tax: $9.12
+Total Due: $123.12
+
+Payment Terms: Net 30
